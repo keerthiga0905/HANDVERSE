@@ -24,13 +24,19 @@ class TrackingService:
         self.frame_counter: int = 0
 
     def process_frame(
-        self, frame_bytes: bytes, client_frame_id: Optional[int] = None
+        self,
+        frame_bytes: bytes,
+        client_frame_id: Optional[int] = None,
+        client_timestamp: Optional[float] = None,
+        server_queue_dropped: int = 0,
     ) -> TrackingResult:
         """Process incoming binary frame bytes and return verified tracking result.
 
         Args:
             frame_bytes: Raw JPEG compressed byte buffer
             client_frame_id: Optional frame ID sent by frontend
+            client_timestamp: Optional capture timestamp from frontend
+            server_queue_dropped: Number of dropped frames on server backlog
 
         Returns:
             TrackingResult schema populated with model detections and gesture classifications
@@ -43,12 +49,16 @@ class TrackingService:
         # 1. Decode and prepare RGB image
         rgb_image, width, height, decode_ms = self.frame_processor.decode_and_prepare(frame_bytes)
 
-        # 2. Run MediaPipe hand landmark detection
+        # 2. Run MediaPipe hand landmark detection with timing
+        t_infer_start = time.perf_counter()
         detected_hands = self.detector.detect_hands(rgb_image)
+        inference_ms = (time.perf_counter() - t_infer_start) * 1000.0
         hands_count = len(detected_hands)
 
-        # 3. Run AI Gesture Recognition Engine (Module 04)
+        # 3. Run AI Gesture Recognition Engine (Module 04) with timing
+        t_gesture_start = time.perf_counter()
         gesture_res = self.gesture_engine.process_gestures(detected_hands, timestamp=now_ts)
+        gesture_ms = (time.perf_counter() - t_gesture_start) * 1000.0
 
         # Merge gesture attributes into detected_hands
         for i, h_detect in enumerate(detected_hands):
@@ -63,10 +73,12 @@ class TrackingService:
                 h_detect.pinch_started = g_hand.pinch_started
                 h_detect.pinch_released = g_hand.pinch_released
 
-        # 4. Run Motion Control & Virtual Cursor Engine (Module 05)
+        # 4. Run Motion Control & Virtual Cursor Engine (Module 05) with timing
+        t_motion_start = time.perf_counter()
         motion_res = self.motion_control.process_tracking(
             detected_hands, gesture_res=gesture_res, timestamp=now_ts
         )
+        motion_ms = (time.perf_counter() - t_motion_start) * 1000.0
 
         # 5. Formulate tracking status
         if hands_count == 0:
@@ -96,4 +108,10 @@ class TrackingService:
             secondary_cursor=motion_res.secondary_cursor,
             is_calibrated=motion_res.is_calibrated,
             motion_events=motion_res.events,
+            client_timestamp=client_timestamp,
+            decode_time_ms=round(decode_ms, 2),
+            inference_time_ms=round(inference_ms, 2),
+            gesture_time_ms=round(gesture_ms, 2),
+            motion_time_ms=round(motion_ms, 2),
+            server_queue_dropped=server_queue_dropped,
         )

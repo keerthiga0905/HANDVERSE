@@ -50,6 +50,13 @@ export interface TrackingResult {
   secondary_cursor?: CursorState | null;
   is_calibrated?: boolean;
   motion_events?: string[];
+  // Latency Profiling & Bottleneck Telemetry
+  client_timestamp?: number;
+  decode_time_ms?: number;
+  inference_time_ms?: number;
+  gesture_time_ms?: number;
+  motion_time_ms?: number;
+  server_queue_dropped?: number;
 }
 
 export interface TrackingHistoryItem {

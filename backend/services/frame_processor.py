@@ -14,7 +14,7 @@ class FrameProcessorError(Exception):
 class FrameProcessor:
     """Decodes binary JPEG frames, validates dimensions, and prepares RGB arrays."""
 
-    def __init__(self, max_width: int = 640) -> None:
+    def __init__(self, max_width: int = 480) -> None:
         self.max_width = max_width
 
     def decode_and_prepare(

@@ -85,6 +85,13 @@ class TrackingResult(BaseModel):
     secondary_cursor: Optional[CursorState] = Field(default=None, description="Secondary virtual cursor state for two-hand mode")
     is_calibrated: bool = Field(default=False, description="Whether movement volume calibration is active")
     motion_events: List[str] = Field(default_factory=list, description="Motion pointer events (CLICKED, PRESSED, etc.)")
+    # Performance Telemetry & Latency Profiling
+    client_timestamp: Optional[float] = Field(default=None, description="Echoed client capture timestamp for end-to-end RTT")
+    decode_time_ms: float = Field(default=0.0, description="Image JPEG decode duration in ms")
+    inference_time_ms: float = Field(default=0.0, description="MediaPipe model inference duration in ms")
+    gesture_time_ms: float = Field(default=0.0, description="Gesture classification duration in ms")
+    motion_time_ms: float = Field(default=0.0, description="Motion control and One Euro smoothing duration in ms")
+    server_queue_dropped: int = Field(default=0, description="Number of stale frames discarded by server queue")
 
 
 class TrackingError(BaseModel):

@@ -1,4 +1,4 @@
-/** HANDVERSE Hand Motion Calibration Studio (Module 05).
+/** HANDVERSE Hand Motion Calibration Studio (Module 05 - Performance Optimized).
  * Real-time 5-step hand calibration wizard, One Euro movement smoothing,
  * virtual cursor overlay, and interactive precision target playground.
  */
@@ -39,6 +39,7 @@ import { CalibrationTarget } from '../components/CalibrationTarget';
 import { CalibrationWizard } from '../components/CalibrationWizard';
 import { ControlSettings } from '../components/ControlSettings';
 import { MotionControlDashboard } from '../components/MotionControlDashboard';
+import { PerformanceMetrics, PerformanceMonitor } from '../components/PerformanceMonitor';
 import { motionApi } from '../services/motionApi';
 
 export const CalibrationPage: React.FC = () => {
@@ -72,8 +73,33 @@ export const CalibrationPage: React.FC = () => {
   const [twoHandGesture, setTwoHandGesture] = useState<string | null>(null);
   const [latencyMs, setLatencyMs] = useState<number>(0);
   const [incomingFps, setIncomingFps] = useState<number>(0);
-  const frameCountRef = useRef<number>(0);
-  const lastFpsCalcTimeRef = useRef<number>(performance.now());
+
+  // Zero-Lag In-Flight Synchronization Refs
+  const inFlightRef = useRef<boolean>(false);
+  const frameSequenceRef = useRef<number>(0);
+  const clientDroppedRef = useRef<number>(0);
+  const serverDroppedRef = useRef<number>(0);
+  const webcamFramesCountRef = useRef<number>(0);
+  const backendFramesCountRef = useRef<number>(0);
+  const lastMetricsUpdateRef = useRef<number>(performance.now());
+
+  // Real-Time Performance Monitor Metrics
+  const [metrics, setMetrics] = useState<PerformanceMetrics>({
+    webcamFps: 0,
+    backendFps: 0,
+    renderFps: 60,
+    inferenceMs: 0,
+    decodeMs: 0,
+    gestureMs: 0,
+    motionMs: 0,
+    processingTimeMs: 0,
+    networkRttMs: 0,
+    endToEndLatencyMs: 0,
+    clientDroppedFrames: 0,
+    serverDroppedFrames: 0,
+    inFlight: false,
+    wsBufferedAmount: 0,
+  });
 
   // Calibration and Settings state
   const [calibrationStatus, setCalibrationStatus] = useState<CalibrationStatusResponse | null>(null);
@@ -140,6 +166,7 @@ export const CalibrationPage: React.FC = () => {
         socket.onopen = () => {
           setWsConnected(true);
           setWsError(null);
+          inFlightRef.current = false;
 
           // Sync motion settings over WebSocket
           try {
@@ -156,15 +183,31 @@ export const CalibrationPage: React.FC = () => {
 
         socket.onmessage = (event) => {
           try {
+            // CRITICAL: RELEASE IN-FLIGHT LOCK
+            inFlightRef.current = false;
+
             const data: TrackingResult = JSON.parse(event.data);
 
             if (data.type === 'tracking_result') {
+              const nowSec = (performance.timeOrigin + performance.now()) / 1000.0;
+              let e2eMs = 0;
+              let rttMs = 0;
+
+              if (data.client_timestamp) {
+                e2eMs = Math.max(0, (nowSec - data.client_timestamp) * 1000.0);
+                rttMs = Math.max(0, e2eMs - (data.processing_time_ms || 0));
+              }
+
+              backendFramesCountRef.current += 1;
+              if (data.server_queue_dropped) {
+                serverDroppedRef.current += data.server_queue_dropped;
+              }
+
               setHands(data.hands || []);
               setHandsDetected(data.hands_detected);
-              setLatencyMs(data.processing_time_ms);
               setTwoHandGesture(data.two_hand_gesture || null);
 
-              // Module 05 Virtual Cursor
+              // Virtual Cursor
               if (data.cursor) {
                 setCursor(data.cursor);
               } else {
@@ -176,13 +219,37 @@ export const CalibrationPage: React.FC = () => {
                 setSecondaryCursor(null);
               }
 
-              // Update FPS counter
-              frameCountRef.current += 1;
-              const now = performance.now();
-              if (now - lastFpsCalcTimeRef.current >= 1000) {
-                setIncomingFps(frameCountRef.current);
-                frameCountRef.current = 0;
-                lastFpsCalcTimeRef.current = now;
+              // THROTTLED TELEMETRY UPDATE: Every 200ms
+              const nowMs = performance.now();
+              if (nowMs - lastMetricsUpdateRef.current >= 200) {
+                const dtSec = (nowMs - lastMetricsUpdateRef.current) / 1000.0;
+                lastMetricsUpdateRef.current = nowMs;
+
+                const wFps = Math.round(webcamFramesCountRef.current / dtSec);
+                const bFps = Math.round(backendFramesCountRef.current / dtSec);
+                webcamFramesCountRef.current = 0;
+                backendFramesCountRef.current = 0;
+
+                const latencyDisplay = Math.round(e2eMs > 0 ? e2eMs : data.processing_time_ms);
+                setIncomingFps(bFps);
+                setLatencyMs(latencyDisplay);
+
+                setMetrics({
+                  webcamFps: wFps,
+                  backendFps: bFps,
+                  renderFps: 60,
+                  inferenceMs: data.inference_time_ms || 0,
+                  decodeMs: data.decode_time_ms || 0,
+                  gestureMs: data.gesture_time_ms || 0,
+                  motionMs: data.motion_time_ms || 0,
+                  processingTimeMs: data.processing_time_ms || 0,
+                  networkRttMs: Math.round(rttMs),
+                  endToEndLatencyMs: latencyDisplay,
+                  clientDroppedFrames: clientDroppedRef.current,
+                  serverDroppedFrames: serverDroppedRef.current,
+                  inFlight: inFlightRef.current,
+                  wsBufferedAmount: socket ? socket.bufferedAmount : 0,
+                });
               }
             }
           } catch (err) {
@@ -192,12 +259,14 @@ export const CalibrationPage: React.FC = () => {
 
         socket.onerror = () => {
           setWsConnected(false);
+          inFlightRef.current = false;
           setWsError('WebSocket connection error to localhost:8000.');
         };
 
         socket.onclose = () => {
           setWsConnected(false);
-          reconnectTimeout = setTimeout(connectWebSocket, 2500);
+          inFlightRef.current = false;
+          reconnectTimeout = setTimeout(connectWebSocket, 2000);
         };
       } catch (err) {
         console.error('WebSocket connection setup failed:', err);
@@ -223,7 +292,6 @@ export const CalibrationPage: React.FC = () => {
       console.warn('Could not save motion settings to localStorage:', e);
     }
 
-    // Sync via WebSocket if connected
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
@@ -250,8 +318,8 @@ export const CalibrationPage: React.FC = () => {
 
       const constraints: MediaStreamConstraints = {
         video: selectedDeviceId
-          ? { deviceId: { exact: selectedDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-          : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          ? { deviceId: { exact: selectedDeviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
+          : { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: false,
       };
 
@@ -269,6 +337,9 @@ export const CalibrationPage: React.FC = () => {
       }
 
       setIsStreaming(true);
+      inFlightRef.current = false;
+      clientDroppedRef.current = 0;
+      serverDroppedRef.current = 0;
 
       const devices = await navigator.mediaDevices.enumerateDevices();
       setAvailableDevices(devices.filter((d) => d.kind === 'videoinput'));
@@ -296,6 +367,7 @@ export const CalibrationPage: React.FC = () => {
     setCursor(null);
     setSecondaryCursor(null);
     setIncomingFps(0);
+    inFlightRef.current = false;
   };
 
   // 6. Viewport dimensions update
@@ -316,20 +388,52 @@ export const CalibrationPage: React.FC = () => {
     return () => window.removeEventListener('resize', updateViewportDimensions);
   }, [updateViewportDimensions]);
 
-  // 7. Video frame transmitter (~15 FPS JPEG)
+  // 7. High-Performance Zero-Lag Video Frame Transmitter Loop
   useEffect(() => {
     if (!isStreaming) return;
 
-    let frameInterval: any;
-    const captureWidth = 640;
+    let animId: number;
+    let videoCallbackId: number | null = null;
+    let isRunning = true;
+    const captureWidth = 480;
+    let lastSendTime = performance.now();
+    const minSendIntervalMs = 45; // ~22 FPS
 
-    const captureAndSendFrame = () => {
+    const processCameraFrame = () => {
+      if (!isRunning) return;
+
       const video = videoRef.current;
       const ws = wsRef.current;
 
-      if (!video || !ws || ws.readyState !== WebSocket.OPEN) return;
-      if (video.readyState < 2) return;
-      if (ws.bufferedAmount > 0) return;
+      if (!video || !ws || ws.readyState !== WebSocket.OPEN) {
+        scheduleNextFrame();
+        return;
+      }
+      if (video.readyState < 2) {
+        scheduleNextFrame();
+        return;
+      }
+
+      webcamFramesCountRef.current += 1;
+
+      const now = performance.now();
+      if (now - lastSendTime < minSendIntervalMs) {
+        scheduleNextFrame();
+        return;
+      }
+
+      // CRITICAL: IN-FLIGHT BACKPRESSURE CHECK
+      if (inFlightRef.current) {
+        clientDroppedRef.current += 1;
+        scheduleNextFrame();
+        return;
+      }
+
+      if (ws.bufferedAmount > 0) {
+        clientDroppedRef.current += 1;
+        scheduleNextFrame();
+        return;
+      }
 
       const captureCanvas = captureCanvasRef.current || document.createElement('canvas');
       captureCanvasRef.current = captureCanvas;
@@ -342,7 +446,10 @@ export const CalibrationPage: React.FC = () => {
       captureCanvas.height = Math.round(captureWidth * aspect);
 
       const ctx = captureCanvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return;
+      if (!ctx) {
+        scheduleNextFrame();
+        return;
+      }
 
       ctx.save();
       ctx.translate(captureCanvas.width, 0);
@@ -350,19 +457,67 @@ export const CalibrationPage: React.FC = () => {
       ctx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
       ctx.restore();
 
+      // Set in-flight lock
+      inFlightRef.current = true;
+      lastSendTime = now;
+      frameSequenceRef.current += 1;
+      const curFrameId = frameSequenceRef.current;
+      const clientSendSec = (performance.timeOrigin + performance.now()) / 1000.0;
+
       captureCanvas.toBlob(
-        (blob) => {
-          if (blob && ws && ws.readyState === WebSocket.OPEN && ws.bufferedAmount === 0) {
-            ws.send(blob);
+        async (blob) => {
+          if (!blob || !isRunning || ws.readyState !== WebSocket.OPEN) {
+            inFlightRef.current = false;
+            scheduleNextFrame();
+            return;
           }
+
+          try {
+            // Binary protocol: 12-byte header + JPEG bytes
+            const blobBuf = await blob.arrayBuffer();
+            const headerBuf = new ArrayBuffer(12);
+            const view = new DataView(headerBuf);
+            view.setUint32(0, curFrameId, false);
+            view.setFloat64(4, clientSendSec, false);
+
+            const packet = new Uint8Array(12 + blobBuf.byteLength);
+            packet.set(new Uint8Array(headerBuf), 0);
+            packet.set(new Uint8Array(blobBuf), 12);
+
+            ws.send(packet);
+          } catch (err) {
+            console.warn('Frame transmission error:', err);
+            inFlightRef.current = false;
+          }
+
+          scheduleNextFrame();
         },
         'image/jpeg',
-        0.65
+        0.52
       );
     };
 
-    frameInterval = setInterval(captureAndSendFrame, 66);
-    return () => clearInterval(frameInterval);
+    const scheduleNextFrame = () => {
+      if (!isRunning || !isStreaming) return;
+      const video = videoRef.current;
+
+      if (video && 'requestVideoFrameCallback' in video) {
+        videoCallbackId = (video as any).requestVideoFrameCallback(processCameraFrame);
+      } else {
+        animId = requestAnimationFrame(processCameraFrame);
+      }
+    };
+
+    scheduleNextFrame();
+
+    return () => {
+      isRunning = false;
+      if (videoRef.current && videoCallbackId !== null && 'cancelVideoFrameCallback' in videoRef.current) {
+        (videoRef.current as any).cancelVideoFrameCallback(videoCallbackId);
+      }
+      cancelAnimationFrame(animId);
+      inFlightRef.current = false;
+    };
   }, [isStreaming]);
 
   const toggleFullscreen = () => {
@@ -379,13 +534,13 @@ export const CalibrationPage: React.FC = () => {
   const bounds = calibrationStatus?.bounds;
 
   return (
-    <div className="relative z-10 w-full min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
+    <div className="relative z-10 w-full min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6">
       {/* Page Header */}
       <div className="text-left space-y-2">
         <div className="flex items-center gap-2">
           <Compass className="w-6 h-6 text-[#FF2D95]" />
           <span className="text-xs font-mono uppercase text-[#FF78BD] tracking-wider">
-            MODULE 05 • HAND CALIBRATION & MOTION ENGINE
+            MODULE 05 • HAND CALIBRATION & MOTION ENGINE (ZERO-LAG PERFORMANCE)
           </span>
         </div>
         <h1 className="text-3xl sm:text-5xl font-black font-heading text-white">
@@ -395,6 +550,9 @@ export const CalibrationPage: React.FC = () => {
           Calibrate physical camera space to virtual screen coordinates with adaptive One Euro smoothing, pinch click mapping, and multi-hand support.
         </p>
       </div>
+
+      {/* Real-Time Performance Monitor Panel */}
+      <PerformanceMonitor metrics={metrics} />
 
       {/* Main Studio Viewport & Sidebar Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
