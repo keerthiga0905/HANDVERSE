@@ -16,7 +16,17 @@ const NavigationContext = createContext<NavigationContextType | undefined>(undef
 export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activePage, setActivePage] = useState<PageId>(() => {
     const hash = window.location.hash.replace('#', '') as PageId;
-    const validPages: PageId[] = ['home', 'dashboard', 'arcade', 'tutorial', 'gesture-lab', 'profile', 'settings'];
+    const validPages: PageId[] = [
+      'home',
+      'dashboard',
+      'arcade',
+      'game-engine',
+      'tutorial',
+      'gesture-lab',
+      'calibration',
+      'profile',
+      'settings',
+    ];
     return validPages.includes(hash) ? hash : 'home';
   });
 
@@ -30,7 +40,17 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '') as PageId;
-      const validPages: PageId[] = ['home', 'dashboard', 'arcade', 'tutorial', 'gesture-lab', 'profile', 'settings'];
+      const validPages: PageId[] = [
+      'home',
+      'dashboard',
+      'arcade',
+      'game-engine',
+      'tutorial',
+      'gesture-lab',
+      'calibration',
+      'profile',
+      'settings',
+    ];
       if (validPages.includes(hash)) {
         setActivePage(hash);
       }

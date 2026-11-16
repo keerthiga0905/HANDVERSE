@@ -50,5 +50,28 @@ class DatabaseManager:
                     );
                     """
                 )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS game_sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id TEXT UNIQUE NOT NULL,
+                        game_id TEXT NOT NULL,
+                        player_name TEXT NOT NULL DEFAULT 'Player 1',
+                        difficulty TEXT NOT NULL,
+                        score INTEGER NOT NULL,
+                        duration_seconds REAL NOT NULL,
+                        highest_combo INTEGER NOT NULL DEFAULT 0,
+                        accuracy_percent REAL NOT NULL DEFAULT 100.0,
+                        status TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """
+                )
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id);"
+                )
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_game_sessions_score ON game_sessions(score DESC);"
+                )
         finally:
             conn.close()

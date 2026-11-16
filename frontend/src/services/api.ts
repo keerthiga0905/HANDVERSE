@@ -55,4 +55,61 @@ export class ApiService {
     }
     return res.json();
   }
+
+  /** Submit completed or ended game session statistics */
+  static async recordGameSession(sessionData: {
+    session_id: string;
+    game_id: string;
+    player_name?: string;
+    difficulty: string;
+    score: number;
+    duration_seconds: number;
+    highest_combo: number;
+    accuracy_percent: number;
+    status: string;
+  }): Promise<any> {
+    const res = await fetch(`${API_BASE}/game-sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessionData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Failed to record session: ${res.statusText}`);
+    }
+    return res.json();
+  }
+
+  /** Fetch past session history */
+  static async getGameSessionsHistory(gameId?: string, limit: number = 50): Promise<{
+    total: number;
+    sessions: any[];
+  }> {
+    const query = new URLSearchParams({ limit: limit.toString() });
+    if (gameId) query.set('game_id', gameId);
+    const res = await fetch(`${API_BASE}/game-sessions/history?${query.toString()}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch session history: ${res.statusText}`);
+    }
+    return res.json();
+  }
+
+  /** Fetch high scores per game and difficulty */
+  static async getBestScores(gameId?: string): Promise<{
+    scores: Array<{
+      game_id: string;
+      difficulty: string;
+      best_score: number;
+      highest_combo: number;
+      achieved_at: string;
+      player_name: string;
+    }>;
+  }> {
+    const query = gameId ? `?game_id=${encodeURIComponent(gameId)}` : '';
+    const res = await fetch(`${API_BASE}/game-sessions/best-scores${query}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch best scores: ${res.statusText}`);
+    }
+    return res.json();
+  }
 }

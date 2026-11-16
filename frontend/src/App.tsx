@@ -15,6 +15,7 @@ import { IntroScreen } from './components/IntroScreen';
 import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ArcadePage } from './pages/ArcadePage';
+import { GameEnginePage } from './pages/GameEnginePage';
 import { HowToPlayPage } from './pages/HowToPlayPage';
 import { GestureLabPage } from './pages/GestureLabPage';
 import { CalibrationPage } from './pages/CalibrationPage';
@@ -33,6 +34,8 @@ const MainAppLayout: React.FC = () => {
         return <DashboardPage />;
       case 'arcade':
         return <ArcadePage />;
+      case 'game-engine':
+        return <GameEnginePage />;
       case 'tutorial':
         return <HowToPlayPage />;
       case 'gesture-lab':

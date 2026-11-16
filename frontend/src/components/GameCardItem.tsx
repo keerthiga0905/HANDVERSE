@@ -42,10 +42,11 @@ export const GameCardItem: React.FC<GameCardItemProps> = ({ game }) => {
   const { openGameModal } = useNavigation();
   const IconComponent = ICON_MAP[game.icon_name] || Sparkles;
 
-  const difficultyColors = {
+  const difficultyColors: Record<string, string> = {
     Easy: 'bg-emerald-950/60 text-emerald-400 border-emerald-500/40',
     Medium: 'bg-amber-950/60 text-amber-400 border-amber-500/40',
     Hard: 'bg-rose-950/60 text-rose-400 border-rose-500/40',
+    Extreme: 'bg-purple-950/60 text-purple-400 border-purple-500/40',
   };
 
   return (

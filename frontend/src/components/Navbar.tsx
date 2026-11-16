@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gamepad2,
+  Flame,
   Home,
   BookOpen,
   Camera,
@@ -33,6 +34,7 @@ export const Navbar: React.FC = () => {
   const navItems: Array<{ id: PageId; label: string; icon: React.FC<{ className?: string }> }> = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'arcade', label: 'Game Arcade', icon: Gamepad2 },
+    { id: 'game-engine', label: 'Game Engine', icon: Flame },
     { id: 'tutorial', label: 'How to Play', icon: BookOpen },
     { id: 'gesture-lab', label: 'Gesture Lab', icon: Camera },
     { id: 'calibration', label: 'Calibration', icon: Compass },

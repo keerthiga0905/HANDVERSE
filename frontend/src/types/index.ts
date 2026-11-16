@@ -4,6 +4,7 @@ export type PageId =
   | 'home'
   | 'dashboard'
   | 'arcade'
+  | 'game-engine'
   | 'tutorial'
   | 'gesture-lab'
   | 'calibration'
@@ -15,7 +16,7 @@ export interface Game {
   title: string;
   description: string;
   category: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Extreme';
   control_type: string;
   status: string;
   is_playable: boolean;
@@ -23,6 +24,9 @@ export interface Game {
   features: string[];
   icon_name: string;
   color: string;
+  supported_gestures?: string[];
+  min_tracking_requirements?: string;
+  game_config?: Record<string, any>;
 }
 
 export interface SystemConfig {

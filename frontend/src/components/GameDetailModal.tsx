@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Hand, Shield, Sparkles, AlertCircle, Camera, CheckCircle2 } from 'lucide-react';
+import { X, Hand, Shield, Sparkles, AlertCircle, Camera, CheckCircle2, Flame } from 'lucide-react';
 import { Game } from '../types';
 import { useNavigation } from '../context/NavigationContext';
 
@@ -100,12 +100,12 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, onClose 
             <button
               onClick={() => {
                 onClose();
-                navigateTo('gesture-lab');
+                navigateTo('game-engine');
               }}
               className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#FF2D95] to-[#FF00A8] text-white font-subheading font-bold text-sm tracking-wider uppercase shadow-[0_0_20px_rgba(255,45,149,0.4)] hover:shadow-[0_0_30px_#FF2D95] transition-all flex items-center justify-center gap-2"
             >
-              <Camera className="w-4 h-4" />
-              <span>Test Webcam in Gesture Lab</span>
+              <Flame className="w-4 h-4 fill-white" />
+              <span>Launch in Game Engine</span>
             </button>
             <button
               onClick={onClose}

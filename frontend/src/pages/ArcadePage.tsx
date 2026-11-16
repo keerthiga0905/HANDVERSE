@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, Gamepad2, X, AlertCircle } from 'lucide-react';
+import { Search, Filter, Gamepad2, X, AlertCircle, Flame, Play } from 'lucide-react';
 import { Game } from '../types';
 import { ApiService } from '../services/api';
 import { GameCardItem } from '../components/GameCardItem';
@@ -10,7 +10,7 @@ import { GameDetailModal } from '../components/GameDetailModal';
 import { useNavigation } from '../context/NavigationContext';
 
 export const ArcadePage: React.FC = () => {
-  const { selectedGameId, closeGameModal } = useNavigation();
+  const { selectedGameId, closeGameModal, navigateTo } = useNavigation();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +80,39 @@ export const ArcadePage: React.FC = () => {
           Discover all 10 planned motion-controlled titles. Filter by genre, difficulty, or search specific hand control mechanics.
         </p>
       </div>
+
+      {/* Module 06 Game Engine Motion Arena Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#19101D] via-[#24132B] to-[#19101D] border-2 border-[#FF2D95]/50 shadow-[0_0_40px_rgba(255,45,149,0.25)] p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
+      >
+        <div className="space-y-2 max-w-2xl">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#FF2D95]/20 text-[#FF78BD] border border-[#FF2D95]/40 flex items-center gap-1">
+              <Flame className="w-3 h-3 text-[#FF2D95]" />
+              MODULE 06 ENGINE
+            </span>
+            <span className="text-xs font-mono text-emerald-400 font-semibold">
+              REAL-TIME ARCHITECTURE ACTIVE
+            </span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-heading font-black text-white">
+            HANDVERSE Motion Game Engine
+          </h2>
+          <p className="text-sm font-subheading text-[#B8A9B8] leading-relaxed">
+            Experience our reusable 8-state game engine featuring 60 FPS delta-time physics, live webcam tracking, pinch popping, dynamic combo multipliers, and session persistence.
+          </p>
+        </div>
+
+        <button
+          onClick={() => navigateTo('game-engine')}
+          className="shrink-0 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#FF2D95] via-[#FF00A8] to-[#FF78BD] text-white font-heading font-black text-sm tracking-wider uppercase shadow-[0_0_25px_rgba(255,45,149,0.5)] hover:shadow-[0_0_40px_#FF2D95] hover:scale-105 active:scale-95 transition-all flex items-center gap-2.5"
+        >
+          <Play className="w-5 h-5 fill-white" />
+          <span>Launch Game Engine</span>
+        </button>
+      </motion.div>
 
       {/* Filter and Search Bar Card */}
       <div className="rounded-2xl bg-[#19101D] border border-[#2D1B36] p-4 sm:p-6 space-y-4">
